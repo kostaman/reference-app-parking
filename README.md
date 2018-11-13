@@ -4,7 +4,7 @@
 
 2. Set up the development environment according to the instructions in the readme file in the root of the unpacked SDK.
 
-3. Copy the directories user_rule and user_sorce to the root of the unpacked SDK.
+3. Copy the directories user_rule and user_source to the root of the unpacked SDK.
 
 4. Open a terminal window and go to the root of the unpacked SDK. Type "make" to build the reference application and other programs shipped with the SDK.
 
