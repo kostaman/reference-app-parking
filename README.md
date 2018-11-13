@@ -1,6 +1,6 @@
 # Building the Application
 
-1. Download and unpack "A1 SDK for Linux ARMv7" XC111-version. (If you are using another connector board (e.g. XC112) use the SDK for your connector board and modify makefile_build_waste_level.inc to use the libraries for your connector board.)
+1. Download and unpack "A1 SDK for Linux ARMv7" XC111-version. (If you are using another connector board (e.g. XC112) use the SDK for your connector board and modify makefile_build_parking_sensor.inc to use the libraries for your connector board.)
 
 2. Set up the development environment according to the instructions in the readme file in the root of the unpacked SDK.
 
