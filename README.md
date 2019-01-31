@@ -1,3 +1,8 @@
+# Introduction
+
+The code in this reference application has been used in Acconeer's parking demo. It is provided as is without any guarantees or support. The code has been tested with A1 SDK for Linux version 1.6.0 and the XC111 connector board.
+
+
 # Building the Application
 
 1. Download and unpack "A1 SDK for Linux ARMv7" XC111-version. (If you are using another connector board (e.g. XC112) use the SDK for your connector board and modify makefile_build_parking_sensor.inc to use the libraries for your connector board.)
