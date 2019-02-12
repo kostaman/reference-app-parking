@@ -18,7 +18,7 @@
 
 #include "acc_version.h"
 
-void handle_fatal_error();
+void handle_fatal_error(char *);
 
 
 inline uint16_t min(uint16_t a, uint16_t b)
