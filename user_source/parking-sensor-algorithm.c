@@ -1,12 +1,9 @@
-// Copyright (c) Acconeer AB, 2018
+// Copyright (c) Acconeer AB, 2018-2019
 // All rights reserved
 
 #include <getopt.h>
-#include <limits.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -18,10 +15,10 @@
 
 #include "acc_version.h"
 
-void handle_fatal_error(char *);
+static void handle_fatal_error(char *);
 
 
-inline uint16_t min(uint16_t a, uint16_t b)
+static inline uint16_t min(uint16_t a, uint16_t b)
 {
 	return (a < b) ? a : b;
 }
@@ -43,11 +40,11 @@ static const int   DEFAULT_DELAY                  = 10;
 
 typedef struct
 {
-	float        start_range;
-	float        length_range;
-	int          nbr_of_sweeps;
-	int          frequency;
-	acc_sensor_t sensor;
+	float           start_range;
+	float           length_range;
+	int             nbr_of_sweeps;
+	int             frequency;
+	acc_sensor_id_t sensor;
 } radar_configuration_t;
 
 typedef struct
@@ -73,9 +70,7 @@ typedef struct datapoint
  *
  * @param[out] app_config
  */
-
-
-void init_configuration(app_configuration_t *app_config)
+static void init_configuration(app_configuration_t *app_config)
 {
 	app_config->calibrate                  = false;
 	app_config->read_calibration_file      = false;
@@ -96,8 +91,6 @@ void init_configuration(app_configuration_t *app_config)
  *
  * @param[in] program_name
  */
-
-
 static void print_usage(const char *program_name)
 {
 	fprintf(stderr, "Usage: %s [OPTIONS]\n", program_name);
@@ -119,9 +112,7 @@ static void print_usage(const char *program_name)
  * @param[in]  argv Array with arguments passed to the main function
  * @param[out] app_config configuration data to be updated
  */
-
-
-static acc_status_t parse_options(int argc, char *argv[], app_configuration_t *app_config)
+static void parse_options(int argc, char *argv[], app_configuration_t *app_config)
 {
 	static struct option long_options[] =
 	{
@@ -192,8 +183,6 @@ static acc_status_t parse_options(int argc, char *argv[], app_configuration_t *a
 			}
 		}
 	}
-
-	return ACC_STATUS_SUCCESS;
 }
 
 
@@ -204,18 +193,11 @@ static acc_status_t parse_options(int argc, char *argv[], app_configuration_t *a
  * @param[in] avg_peak_amp The max peak amplitude from the collected envelope data
  * @param[in] avg_calib_amp The threshold from calibration which decides whether the algorithm should output 1 or 0
  * @param[in] avg_amp_factor Amplitude factor
- * @return -1 if no car, and 1 if car is present.
+ * @return 0 if no car, and 1 if car is present.
  **/
-int car_present(float avg_peak_amp, float avg_calib_amp, float avg_amp_factor)
+static int car_present(float avg_peak_amp, float avg_calib_amp, float avg_amp_factor)
 {
-	if (avg_peak_amp <= avg_calib_amp * avg_amp_factor * 4)
-	{
-		return 0;
-	}
-	else
-	{
-		return 1;
-	}
+	return avg_peak_amp > avg_calib_amp * avg_amp_factor * 4;
 }
 
 
@@ -225,11 +207,12 @@ int car_present(float avg_peak_amp, float avg_calib_amp, float avg_amp_factor)
  * 'step' interval, within the range.
  *
  * @param[out] data Array of the collected envelope data organized as datapoints with amplitude and distance
+ * @param[in]  amp Array of collected amplitude data
  * @param[in]  length Length of datapoint array
  * @param[in]  start Corresponds to start range in the application configuration
  * @param[in]  end The end range for the distance the sensor is measuring
  **/
-void format_data(Datapoint *data, uint16_t *amp, int length, float start, float end)
+static void format_data(Datapoint *data, const uint16_t *amp, int length, float start, float end)
 {
 	float range = end - start;
 	float step  = range/length;
@@ -249,7 +232,7 @@ void format_data(Datapoint *data, uint16_t *amp, int length, float start, float 
  * @param[in] length The length of the envelope data array
  * @return a float number corresponding to the average amplitude for all sweeps
  **/
-float get_average_amplitude(Datapoint *data, int length)
+static float get_average_amplitude(Datapoint *data, int length)
 {
 	float sum = 0;
 
@@ -258,7 +241,7 @@ float get_average_amplitude(Datapoint *data, int length)
 		sum += data[i].amp;
 	}
 
-	return sum/length;
+	return sum / length;
 }
 
 
@@ -270,7 +253,7 @@ float get_average_amplitude(Datapoint *data, int length)
  * @param[in] length The length of the envelope data array
  * @return a datapoint with average max peak amplitude and distance from all sweeps.
  **/
-Datapoint get_max_peak(Datapoint *data, int length)
+static Datapoint get_max_peak(Datapoint *data, int length)
 {
 	Datapoint max;
 
@@ -299,7 +282,7 @@ Datapoint get_max_peak(Datapoint *data, int length)
  * @param[out] peak_amp The datapoint with highest amplitude and its corresponding distance
  * @param[out] avg_amp_factor = peak_amp/avg_calib_amp
  */
-void read_and_calculate_threshold(app_configuration_t *app_config, float *avg_calib_amp, Datapoint *peak_amp, float *avg_amp_factor)
+static void read_and_calculate_threshold(app_configuration_t *app_config, float *avg_calib_amp, Datapoint *peak_amp, float *avg_amp_factor)
 {
 	uint16_t threshold_data[MAX_DATA_SIZE];
 	float    start;
@@ -318,6 +301,11 @@ void read_and_calculate_threshold(app_configuration_t *app_config, float *avg_ca
 	res  =  fscanf(fin, "start %f\n", &start);
 	res += fscanf(fin, "length %f\n", &length);
 	res += fscanf(fin, "n %u\n", &n);
+
+	if (n == 0)
+	{
+		handle_fatal_error("n must be bigger than 0.\n");
+	}
 
 	if (res != 3)
 	{
@@ -365,9 +353,7 @@ void read_and_calculate_threshold(app_configuration_t *app_config, float *avg_ca
  *
  * @param[in]  message error message
  */
-
-
-void handle_fatal_error(char *message)
+static void handle_fatal_error(char *message)
 {
 	fprintf(stderr, "Fatal error: %s\n", message);
 	exit(EXIT_FAILURE);
@@ -381,7 +367,7 @@ void handle_fatal_error(char *message)
  * @param[in]   envelope_configuration The envelope configuration
  * @returns     An envelope service instance
  */
-acc_service_handle_t create_sensor_service(app_configuration_t *app_config, acc_service_configuration_t envelope_configuration)
+static acc_service_handle_t create_sensor_service(app_configuration_t *app_config, acc_service_configuration_t envelope_configuration)
 {
 	//set service profile
 	acc_service_envelope_profile_set(envelope_configuration, ACC_SERVICE_ENVELOPE_PROFILE_MAXIMIZE_SNR);
@@ -417,7 +403,7 @@ acc_service_handle_t create_sensor_service(app_configuration_t *app_config, acc_
  * @param[in]   data_length Max length of envelope data array
  * @returns     Actual length of the envelope_data array
  */
-uint16_t get_one_sweep(acc_service_handle_t envelope_handle, uint16_t *envelope_data, uint16_t data_length)
+static uint16_t get_one_sweep(acc_service_handle_t envelope_handle, uint16_t *envelope_data, uint16_t data_length)
 {
 	//get number of samples (data length) that will be used
 	acc_service_envelope_metadata_t envelope_metadata;
@@ -427,6 +413,10 @@ uint16_t get_one_sweep(acc_service_handle_t envelope_handle, uint16_t *envelope_
 
 	//start doing measurements
 	acc_service_status_t service_status = acc_service_activate(envelope_handle);
+	if (service_status != ACC_SERVICE_STATUS_OK)
+	{
+		handle_fatal_error("acc_service_activate() failed.");
+	}
 
 	//read envelope data from sensor
 	acc_service_envelope_result_info_t result_info;
@@ -449,7 +439,7 @@ uint16_t get_one_sweep(acc_service_handle_t envelope_handle, uint16_t *envelope_
  *
  * @param[in]   envelope_handle The envelope service instance
  */
-void close_sensor_service(acc_service_handle_t envelope_handle)
+static void close_sensor_service(acc_service_handle_t envelope_handle)
 {
 	acc_service_deactivate(envelope_handle);
 	acc_service_destroy(&envelope_handle);
@@ -460,9 +450,9 @@ void close_sensor_service(acc_service_handle_t envelope_handle)
  * @brief Capture envelope data and write to calibration file
  *
  * @param[in]   app_config Configuration data
- * @param[in]   envelope_handle The envelope service instance
+ * @param[in]   envelope_configuration The envelope service configuration
  */
-void write_calibration_data(app_configuration_t *app_config, acc_service_configuration_t envelope_configuration)
+static void write_calibration_data(app_configuration_t *app_config, acc_service_configuration_t envelope_configuration)
 {
 	uint16_t data_len = MAX_DATA_SIZE;
 	uint16_t data[data_len];
@@ -500,12 +490,13 @@ void write_calibration_data(app_configuration_t *app_config, acc_service_configu
  * Uses algorithm car_present() or car_present2() depending on input arguments in main()
  *
  * @param[in]   app_config Configuration data
- * @param[in]   envelope_handle The envelope service instance
+ * @param[in]   envelope_configuration The envelope service configuration
  * @param[out]  avg_calib_amp The average amplitude value from the threshold data
  * @param[out]  avg_amp_factor = peak_amp/avg_calib_amp
  * @returns     1 if there is a car, 0 if the parking spot is empty
  */
-int get_detection(app_configuration_t *app_config, acc_service_configuration_t envelope_configuration, float *avg_calib_amp, float *avg_amp_factor)
+static int get_detection(app_configuration_t *app_config, acc_service_configuration_t envelope_configuration, float *avg_calib_amp,
+                         float *avg_amp_factor)
 {
 	uint16_t data_len = MAX_DATA_SIZE;
 	uint16_t envelope_data[data_len];
@@ -558,7 +549,7 @@ int main(int argc, char *argv[])
 
 	app_configuration_t app_config;
 	parse_options(argc, argv, &app_config);
-	acc_log_set_level(app_config.loglevel, NULL);
+
 	printf("start ref_app\n");
 
 	//activate radar system services
@@ -581,6 +572,8 @@ int main(int argc, char *argv[])
 		write_calibration_data(&app_config, envelope_configuration);
 		printf("Calibration done. Saved in file %s\n", app_config.calibration_file_name);
 
+		acc_service_envelope_configuration_destroy(&envelope_configuration);
+
 		return EXIT_SUCCESS;
 	}
 
@@ -592,12 +585,15 @@ int main(int argc, char *argv[])
 	{
 		printf("Please specify calibration file.\n");
 		print_usage(argv[0]);
+		acc_service_envelope_configuration_destroy(&envelope_configuration);
 		exit(EXIT_FAILURE);
 	}
 
 	printf("Start range: %f\n", (double)app_config.radar_config.start_range);
 
 	int result = get_detection(&app_config, envelope_configuration, &avg_calib_amp, &avg_amp_factor);
+
+	acc_service_envelope_configuration_destroy(&envelope_configuration);
 
 	acc_rss_deactivate();
 
