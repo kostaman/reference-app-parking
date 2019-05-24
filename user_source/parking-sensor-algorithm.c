@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "acc_driver_hal.h"
+
 #include "acc_log.h"
 #include "acc_rss.h"
 #include "acc_service.h"
@@ -14,6 +16,8 @@
 #include "acc_sweep_configuration.h"
 
 #include "acc_version.h"
+
+static acc_hal_t hal;
 
 static void handle_fatal_error(char *);
 
@@ -552,8 +556,14 @@ int main(int argc, char *argv[])
 
 	printf("start ref_app\n");
 
-	//activate radar system services
-	if (!acc_rss_activate())
+	if (!acc_driver_hal_init())
+	{
+		handle_fatal_error("acc_driver_hal_init() failed");
+	}
+
+	hal = acc_driver_hal_get_implementation();
+
+	if (!acc_rss_activate_with_hal(&hal))
 	{
 		handle_fatal_error("acc_rss_activate() failed");
 	}

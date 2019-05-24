@@ -1,6 +1,6 @@
 # Introduction
 
-The code in this reference application has been used in Acconeer's parking demo. It is provided as is without any guarantees or support. The code has been tested with A1 SDK for Linux version 1.6.0 and the XC111 connector board.
+The code in this reference application has been used in Acconeer's parking demo. It is provided as is without any guarantees or support. The code has been tested with A1 SDK for Linux version 1.8.2 and the XC111 connector board.
 
 
 # Building the Application
